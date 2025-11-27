@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>System Status – TweetWatchUK</title>
+    <link rel="stylesheet" href="style.css">
+    <script defer src="status.js"></script>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2>TweetWatchUK</h2>
+    <ul>
+        <li><a href="index.html">Dashboard</a></li>
+        <li><a href="mps.html">MP List</a></li>
+        <li><a href="party.html">Party Stats</a></li>
+        <li><a href="feed.html">Live Feed</a></li>
+        <li><a href="status.html" class="active">System Status</a></li>
+    </ul>
+</div>
+
+<div class="main">
+
+<h1>System Status</h1>
+
+<div class="metric-card">
+    <h3>Last Update</h3>
+    <p id="status-last-updated">Loading…</p>
+</div>
+
+<div class="metric-card">
+    <h3>Last Run Result</h3>
+    <p id="status-result">Loading…</p>
+</div>
+
+<div class="metric-card">
+    <h3>Next Scheduled Run</h3>
+    <p>Top of next hour (HH:00)</p>
+</div>
+
+<h2>Subsystems</h2>
+
+<table id="status-table">
+    <thead>
+        <tr>
+            <th>Component</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>MP Fetch</td><td id="comp-mps">Loading…</td></tr>
+        <tr><td>Tweet Fetch</td><td id="comp-tweets">Loading…</td></tr>
+        <tr><td>Analytics</td><td id="comp-analytics">Loading…</td></tr>
+        <tr><td>Party Stats</td><td id="comp-parties">Loading…</td></tr>
+        <tr><td>Deployment</td><td id="comp-deploy">Loading…</td></tr>
+    </tbody>
+</table>
+
+<h2>Links</h2>
+<div class="metric-card">
+    <a href="https://github.com/j1997sh/TweetWatchUK/actions" target="_blank">
+        View GitHub Actions Workflow
+    </a>
+</div>
+
+</div>
+
+</body>
+</html>
