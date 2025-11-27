@@ -11,6 +11,7 @@ print("Fetching MP list...")
 
 while True:
     url = f"{BASE}?House=Commons&IsCurrentMember=true&skip={skip}&take={take}"
+    print("Fetching:", url)
     data = requests.get(url).json()
 
     items = data["items"]
@@ -26,11 +27,12 @@ while True:
         constituency = v["latestHouseMembership"]["membershipFrom"]
         photo = v["thumbnailUrl"]
 
-        # Default: no twitter
+        # Default
         twitter = None
 
-        # Try to fetch contact info (may include twitter)
+        # Fetch contact info for this MP
         contact_url = CONTACT_BASE.format(id=mp_id)
+        print("Contact:", contact_url)
         contact = requests.get(contact_url).json()
 
         for c in contact.get("value", []):
@@ -48,7 +50,7 @@ while True:
         })
 
     skip += take
-    time.sleep(0.2)  # polite delay
+    time.sleep(0.1)
 
 print(f"Downloaded {len(all_mps)} MPs.")
 
