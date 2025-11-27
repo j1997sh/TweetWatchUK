@@ -2,8 +2,8 @@ name: Update Tweets & Analytics
 
 on:
   schedule:
-    - cron: "0 * * * *"   # Every hour
-  workflow_dispatch:      # Manual run
+    - cron: "0 * * * *"     # hourly
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,88 +15,136 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    # ------------------------------
+    # Checkout + Python
+    # ------------------------------
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v4
       with:
         python-version: "3.11"
 
-    - name: Install dependencies
+    - run: pip install requests pandas
+
+    - run: mkdir -p data/twitter data/analytics scripts
+
+    # ------------------------------
+    # Initialise status file
+    # ------------------------------
+    - name: Start status
       run: |
-        pip install requests pandas
+        cat <<EOF > data/analytics/system_status.json
+        {
+          "mp_fetch": "unknown",
+          "tweet_fetch": "unknown",
+          "analytics": "unknown",
+          "party_stats": "unknown",
+          "deploy": "unknown",
+          "last_result": "running"
+        }
+        EOF
 
-    - name: Ensure folders exist
-      run: |
-        mkdir -p data
-        mkdir -p data/twitter
-        mkdir -p data/analytics
-        mkdir -p scripts
-
-    # ----------------------------------------------------
-    # FETCH UPDATED MP LIST & SOCIAL HANDLES
-    # ----------------------------------------------------
-
-    - name: Fetch MPs (Parliament API)
+    # ------------------------------
+    # MP Fetch
+    # ------------------------------
+    - name: Fetch MPs
       run: |
         python scripts/fetch_mps.py
+      continue-on-error: true
 
-    # ----------------------------------------------------
-    # FETCH TWEETS FOR ALL MPs
-    # ----------------------------------------------------
+    - name: Mark MP Fetch
+      run: |
+        if [ $? -eq 0 ]; then
+          jq '.mp_fetch="ok"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
+        else
+          jq '.mp_fetch="fail"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
+        fi
 
-    - name: Fetch Tweets for all MPs
+    # ------------------------------
+    # Tweet Fetch
+    # ------------------------------
+    - name: Fetch Tweets
       run: |
         python scripts/fetch_tweets.py
+      continue-on-error: true
 
-    # ----------------------------------------------------
-    # GENERATE PER-MP ANALYTICS
-    # ----------------------------------------------------
+    - name: Mark Tweet Fetch
+      run: |
+        if [ $? -eq 0 ]; then
+          jq '.tweet_fetch="ok"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
+        else
+          jq '.tweet_fetch="fail"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
+        fi
 
-    - name: Generate MP Analytics
+    # ------------------------------
+    # Analytics
+    # ------------------------------
+    - name: Generate Analytics
       run: |
         python scripts/process_analytics.py
+      continue-on-error: true
 
-    # ----------------------------------------------------
-    # GENERATE PARTY-LEVEL STATS PAGE
-    # ----------------------------------------------------
+    - name: Mark Analytics
+      run: |
+        if [ $? -eq 0 ]; then
+          jq '.analytics="ok"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
+        else
+          jq '.analytics="fail"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
+        fi
 
+    # ------------------------------
+    # Party Stats
+    # ------------------------------
     - name: Generate Party Stats
       run: |
         python scripts/generate_party_stats.py
+      continue-on-error: true
 
-    # ----------------------------------------------------
-    # SAVE LAST UPDATED TIMESTAMP
-    # ----------------------------------------------------
+    - name: Mark Party Stats
+      run: |
+        if [ $? -eq 0 ]; then
+          jq '.party_stats="ok"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
+        else
+          jq '.party_stats="fail"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
+        fi
 
-    - name: Save last updated timestamp
+    # ------------------------------
+    # Timestamp
+    # ------------------------------
+    - name: Save timestamp
       run: |
         echo "{\"last_updated\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" > data/analytics/last_update.json
 
-    # ----------------------------------------------------
-    # COMMIT CHANGES BACK TO REPO
-    # ----------------------------------------------------
-
-    - name: Commit updated data
+    # ------------------------------
+    # Commit data
+    # ------------------------------
+    - name: Commit data
       run: |
         git config user.name "github-actions"
         git config user.email "github-actions@github.com"
-        git add data/mps.json || true
-        git add data/twitter || true
-        git add data/analytics || true
-        git commit -m "Automated update: tweets, analytics, party stats" || true
+        git add data || true
+        git commit -m "Automated data update" || true
         git push || true
 
-    # ----------------------------------------------------
-    # DEPLOY TO GITHUB PAGES
-    # ----------------------------------------------------
-
+    # ------------------------------
+    # Deploy to GitHub Pages
+    # ------------------------------
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
         path: .
 
-    - name: Deploy to GitHub Pages
+    - name: Deploy Pages
       id: deployment
       uses: actions/deploy-pages@v4
+
+    - name: Mark Deploy OK
+      if: success()
+      run: |
+        jq '.deploy="ok" | .last_result="success"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
+
+    - name: Mark Deploy FAIL
+      if: failure()
+      run: |
+        jq '.deploy="fail" | .last_result="failure"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
