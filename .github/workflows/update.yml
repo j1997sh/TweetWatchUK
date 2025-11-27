@@ -2,69 +2,60 @@ name: update
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # Every 10 minutes
+    - cron: "*/10 * * * *"   # Runs every 10 minutes
   workflow_dispatch:
 
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install requests beautifulsoup4
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install feedparser requests aiohttp beautifulsoup4
 
-      - name: Fetch MP list
-        run: python fetch_mps.py
+    - name: Fetch MP list
+      run: python fetch_mps.py
 
-      - name: Fetch MP Twitter handles
-        run: python fetch_handles.py
+    - name: Fetch MP Twitter handles
+      run: python fetch_handles.py
 
-      - name: Fetch MP tweets
-        run: python fetch_twitter.py
+    - name: Fetch MP tweets
+      run: python fetch_twitter.py
 
-      - name: Generate analytics
-        run: python generate_analytics.py
+    - name: Generate analytics
+      run: python dashboard.py
 
-      - name: Commit updated data
-        run: |
-          git config user.name "actions-user"
-          git config user.email "actions@github.com"
-          git add data/*.json
-          git add status.json
-          git commit -m "Auto-update data" || echo "No changes"
-          git push || echo "No changes to push"
+    - name: Commit updated data
+      run: |
+        git config --local user.email "actions@github.com"
+        git config --local user.name "GitHub Actions"
+        git add data/
+        git commit -m "Auto update data" || echo "No changes to commit"
 
-      - name: Upload Pages Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: github-pages
-          path: .
+    - name: Upload build artifact
+      uses: actions/upload-pages-artifact@v4
+      with:
+        path: .    # deploy everything including HTML, CSS, JS
 
   deploy:
     needs: update
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    permissions:
-      pages: write
-      id-token: write
+      url: ${{ steps.deploy-pages.outputs.page_url }}
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: github-pages
-
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - name: Deploy GitHub Pages
+        id: deploy-pages
         uses: actions/deploy-pages@v4
