@@ -1,80 +1,78 @@
-import requests
 import json
 import os
-from bs4 import BeautifulSoup
+import aiohttp
+import asyncio
+import datetime
 
-DATA_DIR = "data/twitter"
 MPS_FILE = "data/mps.json"
+OUT_DIR = "data/twitter"
+os.makedirs(OUT_DIR, exist_ok=True)
 
-os.makedirs(DATA_DIR, exist_ok=True)
+API_TEMPLATE = "https://r.jina.ai/https://cdn.jina.ai/snscrape/twitter?handle={handle}&limit=1"
 
-
-def extract_handle(twitter_url):
-    """
-    Convert full URL like https://twitter.com/DianeAbbottMP
-    into 'DianeAbbottMP'
-    """
-    if not twitter_url:
-        return None
-    return twitter_url.rstrip("/").split("/")[-1]
+CONCURRENT_REQUESTS = 40  # speed vs rate limit
+RECENT_THRESHOLD_HOURS = 48  # only save tweets newer than this
 
 
-def fetch_rss_for_handle(handle):
-    """
-    Uses Nitter RSS feed. If down, returns empty list.
-    """
-    rss_url = f"https://nitter.net/{handle}/rss"
+async def fetch_latest(session, mp):
+    handle = mp.get("twitter_username")
+    mp_id = str(mp["person_id"])
+
+    if not handle:
+        return mp_id, []
+
+    url = API_TEMPLATE.format(handle=handle)
 
     try:
-        r = requests.get(rss_url, timeout=10)
-        if r.status_code != 200:
-            return []
+        async with session.get(url, timeout=10) as r:
+            if r.status != 200:
+                return mp_id, []
 
-        soup = BeautifulSoup(r.text, "xml")
-        items = soup.find_all("item")
+            data = await r.json()
 
-        tweets = []
-        for item in items:
-            text = item.description.text if item.description else ""
-            pubdate = item.pubDate.text if item.pubDate else ""
+            if not data:
+                return mp_id, []
 
-            tweets.append({
-                "text": text,
-                "pub_date": pubdate,
-                "like_count": 0,        # RSS does not include engagement
-                "retweet_count": 0,
-                "reply_count": 0,
-                "age_minutes": 99999    # updated later in analytics
-            })
+            tweet = data[0]
 
-        return tweets
+            # Check recency
+            date_str = tweet.get("date")
+            if date_str:
+                dt = datetime.datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                age_hours = (datetime.datetime.now(datetime.timezone.utc) - dt).total_seconds() / 3600
+
+                # skip stale tweets
+                if age_hours > RECENT_THRESHOLD_HOURS:
+                    return mp_id, []
+
+            cleaned = {
+                "text": tweet.get("content", ""),
+                "date": tweet.get("date", ""),
+                "url": tweet.get("url", ""),
+                "id": tweet.get("id", "")
+            }
+            return mp_id, [cleaned]
 
     except Exception:
-        return []
+        return mp_id, []
 
 
-def main():
+async def main():
     with open(MPS_FILE, "r") as f:
         mps = json.load(f)
 
-    for mp in mps:
-        handle = mp.get("twitter_username")
-        mp_id = str(mp["person_id"])
+    connector = aiohttp.TCPConnector(limit_per_host=CONCURRENT_REQUESTS)
+    async with aiohttp.ClientSession(connector=connector) as session:
 
-        if not handle:
-            print(f"No Twitter for {mp['name']}")
-            tweets = []
-        else:
-            print(f"Fetching tweets for {mp['name']} (@{handle})")
-            tweets = fetch_rss_for_handle(handle)
+        tasks = [fetch_latest(session, mp) for mp in mps]
+        results = await asyncio.gather(*tasks)
 
-        # save per MP
-        out_path = os.path.join(DATA_DIR, f"{mp_id}.json")
-        with open(out_path, "w") as f:
-            json.dump(tweets, f, indent=2)
+        for mp_id, tweets in results:
+            with open(os.path.join(OUT_DIR, f"{mp_id}.json"), "w") as f:
+                json.dump(tweets, f, indent=2)
 
-    print("Tweet fetching complete.")
+    print("FAST SNScrape complete ✓")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
