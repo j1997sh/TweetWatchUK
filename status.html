@@ -23,29 +23,28 @@
 
 <h1>System Status</h1>
 
-<div class="metric-card">
-    <h3>Last Update</h3>
-    <p id="status-last-updated">Loading…</p>
-</div>
+<div class="metrics-grid">
+    <div class="metric-card">
+        <h3>Last Update</h3>
+        <p id="status-last-updated">Loading…</p>
+    </div>
 
-<div class="metric-card">
-    <h3>Last Run Result</h3>
-    <p id="status-result">Loading…</p>
-</div>
+    <div class="metric-card">
+        <h3>Last Run Result</h3>
+        <p id="status-result">Loading…</p>
+    </div>
 
-<div class="metric-card">
-    <h3>Next Scheduled Run</h3>
-    <p>Top of next hour (HH:00)</p>
+    <div class="metric-card">
+        <h3>Next Scheduled Run</h3>
+        <p>Top of next hour</p>
+    </div>
 </div>
 
 <h2>Subsystems</h2>
 
 <table id="status-table">
     <thead>
-        <tr>
-            <th>Component</th>
-            <th>Status</th>
-        </tr>
+        <tr><th>Component</th><th>Status</th></tr>
     </thead>
     <tbody>
         <tr><td>MP Fetch</td><td id="comp-mps">Loading…</td></tr>
@@ -59,11 +58,10 @@
 <h2>Links</h2>
 <div class="metric-card">
     <a href="https://github.com/j1997sh/TweetWatchUK/actions" target="_blank">
-        View GitHub Actions Workflow
+        GitHub Actions Workflow →
     </a>
 </div>
 
 </div>
-
 </body>
 </html>
