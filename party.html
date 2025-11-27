@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Party Stats – TweetWatchUK</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>TweetWatchUK</h2>
+        <a href="index.html">Dashboard</a>
+        <a href="mps.html">MP List</a>
+        <a href="live.html">Live Feed</a>
+        <a class="active" href="party.html">Party Stats</a>
+    </div>
+
+    <div class="content">
+        <h1>Party Statistics</h1>
+        <p id="lastUpdated" class="updated-time">Loading...</p>
+
+        <!-- STAT TILES -->
+        <div id="partyTiles" class="party-tiles"></div>
+
+        <!-- CHART -->
+        <div class="card">
+            <h2>Engagement by Party</h2>
+            <canvas id="partyChart"></canvas>
+        </div>
+
+        <!-- TABLE -->
+        <div class="card">
+            <h2>Party Breakdown</h2>
+            <table id="partyTable">
+                <thead>
+                    <tr>
+                        <th>Party</th>
+                        <th>MPs</th>
+                        <th>Total Tweets</th>
+                        <th>Total Engagement</th>
+                        <th>Avg Tweets/MP</th>
+                        <th>Avg Engagement/MP</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script src="party.js"></script>
+</body>
+</html>
