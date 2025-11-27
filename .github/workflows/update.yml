@@ -1,39 +1,102 @@
-name: Update Tweets
+name: Update Tweets & Analytics
 
 on:
   schedule:
-    - cron: "0 * * * *"   # run every hour
-  workflow_dispatch:
+    - cron: "0 * * * *"   # Every hour
+  workflow_dispatch:      # Manual run
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   update:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.11
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install requests feedparser beautifulsoup4
+    - name: Install dependencies
+      run: |
+        pip install requests pandas
 
-      - name: Fetch MP list
-        run: python fetch_mps.py
+    - name: Ensure folders exist
+      run: |
+        mkdir -p data
+        mkdir -p data/twitter
+        mkdir -p data/analytics
+        mkdir -p scripts
 
-      - name: Fetch MP Twitter/X handles (TheyWorkForYou)
-        run: python fetch_handles.py
+    # ----------------------------------------------------
+    # FETCH UPDATED MP LIST & SOCIAL HANDLES
+    # ----------------------------------------------------
 
-      - name: Fetch Tweets for MPs
-        run: python fetch_twitter.py
+    - name: Fetch MPs (Parliament API)
+      run: |
+        python scripts/fetch_mps.py
 
-      - name: Commit and push changes
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add .
-          git commit -m "Update tweets and MP handles" || echo "No changes"
-          git push --force
+    # ----------------------------------------------------
+    # FETCH TWEETS FOR ALL MPs
+    # ----------------------------------------------------
+
+    - name: Fetch Tweets for all MPs
+      run: |
+        python scripts/fetch_tweets.py
+
+    # ----------------------------------------------------
+    # GENERATE PER-MP ANALYTICS
+    # ----------------------------------------------------
+
+    - name: Generate MP Analytics
+      run: |
+        python scripts/process_analytics.py
+
+    # ----------------------------------------------------
+    # GENERATE PARTY-LEVEL STATS PAGE
+    # ----------------------------------------------------
+
+    - name: Generate Party Stats
+      run: |
+        python scripts/generate_party_stats.py
+
+    # ----------------------------------------------------
+    # SAVE LAST UPDATED TIMESTAMP
+    # ----------------------------------------------------
+
+    - name: Save last updated timestamp
+      run: |
+        echo "{\"last_updated\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" > data/analytics/last_update.json
+
+    # ----------------------------------------------------
+    # COMMIT CHANGES BACK TO REPO
+    # ----------------------------------------------------
+
+    - name: Commit updated data
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add data/mps.json || true
+        git add data/twitter || true
+        git add data/analytics || true
+        git commit -m "Automated update: tweets, analytics, party stats" || true
+        git push || true
+
+    # ----------------------------------------------------
+    # DEPLOY TO GITHUB PAGES
+    # ----------------------------------------------------
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: .
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
