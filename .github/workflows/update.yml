@@ -24,11 +24,10 @@ jobs:
       with:
         python-version: "3.11"
 
-    - name: Install dependencies
+        - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip setuptools wheel
-        python -m pip install aiohttp feedparser beautifulsoup4 requests
-        python -m pip list
+        pip install requests beautifulsoup4 aiohttp feedparser
+
 
     - name: Fetch MP list
       run: python fetch_mps.py
