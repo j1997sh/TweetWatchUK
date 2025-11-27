@@ -1,77 +1,70 @@
 name: update
 
-# When the workflow should run
 on:
   schedule:
-    - cron: "*/10 * * * *"   # every 10 minutes
-  workflow_dispatch:         # manual run
-
-# Required permissions
-permissions:
-  contents: write
-  pages: write
-  id-token: write
+    - cron: "*/10 * * * *"   # Every 10 minutes
+  workflow_dispatch:
 
 jobs:
-
-  # ---------- UPDATE DATA JOB ----------
   update:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Set up Python
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # Install dependencies
-      - name: Install Python dependencies
-        run: pip install requests
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
 
-      # Fetch MP metadata
-      - name: Fetch MP list + handles
-        run: |
-          python fetch_mps.py
-          python fetch_handles.py
+      - name: Fetch MP list
+        run: python fetch_mps.py
 
-      # Fetch tweets from X
-      - name: Fetch tweets
+      - name: Fetch MP Twitter handles
+        run: python fetch_handles.py
+
+      - name: Fetch MP tweets
         run: python fetch_twitter.py
 
-      # Build analytics
       - name: Generate analytics
-        run: python dashboard.py
+        run: python generate_analytics.py
 
-      # Commit changes (without failing if no changes)
       - name: Commit updated data
         run: |
           git config user.name "actions-user"
           git config user.email "actions@github.com"
-          git add data
-          git commit -m "Update tweets and analytics" || echo "No changes to commit"
+          git add data/*.json
+          git add status.json
+          git commit -m "Auto-update data" || echo "No changes"
+          git push || echo "No changes to push"
 
-      # Upload site artifacts for GitHub Pages
-      - name: Upload site artifact
-        uses: actions/upload-pages-artifact@v2
+      - name: Upload Pages Artifact
+        uses: actions/upload-artifact@v4
         with:
+          name: github-pages
           path: .
 
-  # ---------- DEPLOYMENT JOB ----------
   deploy:
     needs: update
     runs-on: ubuntu-latest
-
-    # REQUIRED by GitHub — this was the source of your errors
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
+    permissions:
+      pages: write
+      id-token: write
+
     steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
