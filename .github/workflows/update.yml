@@ -2,12 +2,13 @@ name: Update Tweets
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 * * * *"   # every hour
   workflow_dispatch:
 
 jobs:
   update:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
 
@@ -15,14 +16,4 @@ jobs:
         with:
           python-version: 3.11
 
-      - run: pip install feedparser requests
-
-      - run: python fetch_mps.py
-      - run: python fetch_twitter.py
-
-      - run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add .
-          git commit -m "Update tweets" || echo "No changes"
-          git push
+      - name
