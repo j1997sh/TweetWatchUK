@@ -2,7 +2,7 @@ name: Update Tweets & Analytics
 
 on:
   schedule:
-    - cron: "0 * * * *"     # hourly
+    - cron: "*/10 * * * *"     # Every 10 minutes
   workflow_dispatch:
 
 permissions:
@@ -19,20 +19,27 @@ jobs:
     # ------------------------------
     # Checkout + Python
     # ------------------------------
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-    - uses: actions/setup-python@v4
+    - name: Setup Python
+      uses: actions/setup-python@v4
       with:
         python-version: "3.11"
 
-    - run: pip install requests pandas
+    - name: Install dependencies
+      run: pip install requests pandas
 
-    - run: mkdir -p data/twitter data/analytics scripts
+    - name: Ensure folders exist
+      run: |
+        mkdir -p data/twitter
+        mkdir -p data/analytics
+        mkdir -p scripts
 
     # ------------------------------
     # Initialise status file
     # ------------------------------
-    - name: Start status
+    - name: Initialise status JSON
       run: |
         cat <<EOF > data/analytics/system_status.json
         {
@@ -48,14 +55,14 @@ jobs:
     # ------------------------------
     # MP Fetch
     # ------------------------------
-    - name: Fetch MPs
-      run: |
-        python scripts/fetch_mps.py
+    - name: Fetch MP list
+      id: fetch_mps
+      run: python scripts/fetch_mps.py
       continue-on-error: true
 
-    - name: Mark MP Fetch
+    - name: Mark MP Fetch Result
       run: |
-        if [ $? -eq 0 ]; then
+        if [ "${{ steps.fetch_mps.outcome }}" = "success" ]; then
           jq '.mp_fetch="ok"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
         else
           jq '.mp_fetch="fail"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
@@ -65,13 +72,13 @@ jobs:
     # Tweet Fetch
     # ------------------------------
     - name: Fetch Tweets
-      run: |
-        python scripts/fetch_tweets.py
+      id: fetch_tweets
+      run: python scripts/fetch_tweets.py
       continue-on-error: true
 
-    - name: Mark Tweet Fetch
+    - name: Mark Tweet Fetch Result
       run: |
-        if [ $? -eq 0 ]; then
+        if [ "${{ steps.fetch_tweets.outcome }}" = "success" ]; then
           jq '.tweet_fetch="ok"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
         else
           jq '.tweet_fetch="fail"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
@@ -80,14 +87,14 @@ jobs:
     # ------------------------------
     # Analytics
     # ------------------------------
-    - name: Generate Analytics
-      run: |
-        python scripts/process_analytics.py
+    - name: Process Analytics
+      id: analytics
+      run: python scripts/process_analytics.py
       continue-on-error: true
 
-    - name: Mark Analytics
+    - name: Mark Analytics Result
       run: |
-        if [ $? -eq 0 ]; then
+        if [ "${{ steps.analytics.outcome }}" = "success" ]; then
           jq '.analytics="ok"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
         else
           jq '.analytics="fail"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
@@ -97,13 +104,13 @@ jobs:
     # Party Stats
     # ------------------------------
     - name: Generate Party Stats
-      run: |
-        python scripts/generate_party_stats.py
+      id: party_stats
+      run: python scripts/generate_party_stats.py
       continue-on-error: true
 
-    - name: Mark Party Stats
+    - name: Mark Party Stats Result
       run: |
-        if [ $? -eq 0 ]; then
+        if [ "${{ steps.party_stats.outcome }}" = "success" ]; then
           jq '.party_stats="ok"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
         else
           jq '.party_stats="fail"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
@@ -117,7 +124,7 @@ jobs:
         echo "{\"last_updated\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" > data/analytics/last_update.json
 
     # ------------------------------
-    # Commit data
+    # Commit updated data
     # ------------------------------
     - name: Commit data
       run: |
@@ -128,23 +135,31 @@ jobs:
         git push || true
 
     # ------------------------------
-    # Deploy to GitHub Pages
+    # Upload artifact for Pages
     # ------------------------------
-    - name: Upload artifact
+    - name: Upload build artifact
       uses: actions/upload-pages-artifact@v3
       with:
         path: .
 
-    - name: Deploy Pages
+    # ------------------------------
+    # Deploy to GitHub Pages
+    # ------------------------------
+    - name: Deploy GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v4
+      environment:
+        name: github-pages
 
-    - name: Mark Deploy OK
+    # ------------------------------
+    # Mark Deployment Status
+    # ------------------------------
+    - name: Mark Deployment OK
       if: success()
       run: |
         jq '.deploy="ok" | .last_result="success"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
 
-    - name: Mark Deploy FAIL
+    - name: Mark Deployment FAIL
       if: failure()
       run: |
         jq '.deploy="fail" | .last_result="failure"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
