@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MP List – TweetWatch UK</title>
+    <link rel="stylesheet" href="style.css">
+    <script defer src="mp_modal.js"></script>
+    <script defer src="mps.js"></script>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>TweetWatch UK</h2>
+    <a href="index.html">Dashboard</a>
+    <a class="active" href="mps.html">MP List</a>
+</div>
+
+<div class="main">
+    <h1>MP List</h1>
+
+    <!-- Search + Filters -->
+    <div class="filter-bar">
+        <input type="text" id="search-input" placeholder="Search MPs by name, party or constituency">
+        <select id="party-filter">
+            <option value="">All Parties</option>
+        </select>
+    </div>
+
+    <!-- MP Table -->
+    <table class="mp-table" id="mp-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Party</th>
+                <th>Constituency</th>
+                <th>Engagement</th>
+                <th>Tweets</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- Modal -->
+<div id="mpModal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <div id="mpModalBody"></div>
+  </div>
+</div>
+
+</body>
+</html>
