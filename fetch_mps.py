@@ -1,22 +1,25 @@
 import requests, json, os, time, re
 
-# API endpoints
 BASE = "https://members-api.parliament.uk/api/Members/Search"
 CONTACT_BASE = "https://members-api.parliament.uk/api/Members/{id}/Contact"
 
-def extract_handle(url):
-    """Extract @username from any X/Twitter URL format."""
-    if not url:
+def extract_handle(text):
+    """Extract clean Twitter/X handle from any format."""
+    if not text:
         return None
 
-    url = url.strip()
+    text = text.strip()
 
-    # Case: "@username"
-    if url.startswith("@"):
-        return url[1:].lower()
+    # @username
+    if text.startswith("@"):
+        return text[1:].lower()
 
-    # Case: https://twitter.com/username
-    match = re.search(r"(twitter\.com|x\.com)/([A-Za-z0-9_]+)", url)
+    # Raw username with no URL
+    if re.fullmatch(r"[A-Za-z0-9_]+", text):
+        return text.lower()
+
+    # URL formats
+    match = re.search(r"(twitter\.com|x\.com)/([A-Za-z0-9_]+)", text)
     if match:
         return match.group(2).lower()
 
@@ -28,16 +31,13 @@ def fetch_mps():
     skip = 0
     take = 20
 
-    print("Fetching MP list...")
-
     while True:
         url = f"{BASE}?House=Commons&IsCurrentMember=true&skip={skip}&take={take}"
         print("Fetching:", url)
 
         try:
             data = requests.get(url).json()
-        except Exception as e:
-            print(f"ERROR fetching page: {e}")
+        except:
             break
 
         items = data.get("items", [])
@@ -55,26 +55,31 @@ def fetch_mps():
 
             twitter = None
 
-            # Get contact details
+            # Fetch contact info
             contact_url = CONTACT_BASE.format(id=mp_id)
             try:
                 contact = requests.get(contact_url).json()
             except:
                 contact = {}
 
-            # Search all contact entries
+            # Search all contact fields for any Twitter/X link
             for c in contact.get("value", []):
+                notes = c.get("notes", "") or ""
                 ctype = c.get("type", "").lower()
 
-                # Parliament labels X as:
-                # - "Twitter"
-                # - "X (formerly Twitter)"
+                # Detect via type
                 if "twitter" in ctype or "x" in ctype:
-                    notes = c.get("notes")
                     twitter = extract_handle(notes)
-                    break
+                    if twitter:
+                        break
 
-            # Skip MPs without X accounts
+                # Detect via content
+                if "twitter.com" in notes or "x.com" in notes:
+                    twitter = extract_handle(notes)
+                    if twitter:
+                        break
+
+            # Skip MPs without X/Twitter accounts
             if not twitter:
                 continue
 
@@ -90,9 +95,8 @@ def fetch_mps():
         skip += take
         time.sleep(0.1)
 
-    print(f"Found {len(all_mps)} MPs with Twitter/X accounts.")
+    print(f"FOUND {len(all_mps)} MPs with Twitter/X accounts.")
 
-    # Save results
     os.makedirs("data", exist_ok=True)
     with open("data/mps.json", "w") as f:
         json.dump(all_mps, f, indent=2)
