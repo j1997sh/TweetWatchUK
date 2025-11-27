@@ -1,165 +1,77 @@
-name: Update Tweets & Analytics
+name: update
 
+# When the workflow should run
 on:
   schedule:
-    - cron: "*/10 * * * *"     # Every 10 minutes
-  workflow_dispatch:
+    - cron: "*/10 * * * *"   # every 10 minutes
+  workflow_dispatch:         # manual run
 
+# Required permissions
 permissions:
   contents: write
   pages: write
   id-token: write
 
 jobs:
+
+  # ---------- UPDATE DATA JOB ----------
   update:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # ------------------------------
-    # Checkout + Python
-    # ------------------------------
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      # Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
+      # Install dependencies
+      - name: Install Python dependencies
+        run: pip install requests
 
-    - name: Install dependencies
-      run: pip install requests pandas
+      # Fetch MP metadata
+      - name: Fetch MP list + handles
+        run: |
+          python fetch_mps.py
+          python fetch_handles.py
 
-    - name: Ensure folders exist
-      run: |
-        mkdir -p data/twitter
-        mkdir -p data/analytics
-        mkdir -p scripts
+      # Fetch tweets from X
+      - name: Fetch tweets
+        run: python fetch_twitter.py
 
-    # ------------------------------
-    # Initialise status file
-    # ------------------------------
-    - name: Initialise status JSON
-      run: |
-        cat <<EOF > data/analytics/system_status.json
-        {
-          "mp_fetch": "unknown",
-          "tweet_fetch": "unknown",
-          "analytics": "unknown",
-          "party_stats": "unknown",
-          "deploy": "unknown",
-          "last_result": "running"
-        }
-        EOF
+      # Build analytics
+      - name: Generate analytics
+        run: python dashboard.py
 
-    # ------------------------------
-    # MP Fetch
-    # ------------------------------
-    - name: Fetch MP list
-      id: fetch_mps
-      run: python scripts/fetch_mps.py
-      continue-on-error: true
+      # Commit changes (without failing if no changes)
+      - name: Commit updated data
+        run: |
+          git config user.name "actions-user"
+          git config user.email "actions@github.com"
+          git add data
+          git commit -m "Update tweets and analytics" || echo "No changes to commit"
 
-    - name: Mark MP Fetch Result
-      run: |
-        if [ "${{ steps.fetch_mps.outcome }}" = "success" ]; then
-          jq '.mp_fetch="ok"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
-        else
-          jq '.mp_fetch="fail"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
-        fi
+      # Upload site artifacts for GitHub Pages
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: .
 
-    # ------------------------------
-    # Tweet Fetch
-    # ------------------------------
-    - name: Fetch Tweets
-      id: fetch_tweets
-      run: python scripts/fetch_tweets.py
-      continue-on-error: true
+  # ---------- DEPLOYMENT JOB ----------
+  deploy:
+    needs: update
+    runs-on: ubuntu-latest
 
-    - name: Mark Tweet Fetch Result
-      run: |
-        if [ "${{ steps.fetch_tweets.outcome }}" = "success" ]; then
-          jq '.tweet_fetch="ok"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
-        else
-          jq '.tweet_fetch="fail"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
-        fi
+    # REQUIRED by GitHub — this was the source of your errors
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
-    # ------------------------------
-    # Analytics
-    # ------------------------------
-    - name: Process Analytics
-      id: analytics
-      run: python scripts/process_analytics.py
-      continue-on-error: true
-
-    - name: Mark Analytics Result
-      run: |
-        if [ "${{ steps.analytics.outcome }}" = "success" ]; then
-          jq '.analytics="ok"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
-        else
-          jq '.analytics="fail"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
-        fi
-
-    # ------------------------------
-    # Party Stats
-    # ------------------------------
-    - name: Generate Party Stats
-      id: party_stats
-      run: python scripts/generate_party_stats.py
-      continue-on-error: true
-
-    - name: Mark Party Stats Result
-      run: |
-        if [ "${{ steps.party_stats.outcome }}" = "success" ]; then
-          jq '.party_stats="ok"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
-        else
-          jq '.party_stats="fail"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
-        fi
-
-    # ------------------------------
-    # Timestamp
-    # ------------------------------
-    - name: Save timestamp
-      run: |
-        echo "{\"last_updated\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" > data/analytics/last_update.json
-
-    # ------------------------------
-    # Commit updated data
-    # ------------------------------
-    - name: Commit data
-      run: |
-        git config user.name "github-actions"
-        git config user.email "github-actions@github.com"
-        git add data || true
-        git commit -m "Automated data update" || true
-        git push || true
-
-    # ------------------------------
-    # Upload artifact for Pages
-    # ------------------------------
-    - name: Upload build artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: .
-
-    # ------------------------------
-    # Deploy to GitHub Pages
-    # ------------------------------
-    - name: Deploy GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
-      environment:
-        name: github-pages
-
-    # ------------------------------
-    # Mark Deployment Status
-    # ------------------------------
-    - name: Mark Deployment OK
-      if: success()
-      run: |
-        jq '.deploy="ok" | .last_result="success"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
-
-    - name: Mark Deployment FAIL
-      if: failure()
-      run: |
-        jq '.deploy="fail" | .last_result="failure"' data/analytics/system_status.json > tmp.json && mv tmp.json data/analytics/system_status.json
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
