@@ -1,0 +1,10 @@
+{
+  "person_id": "400",
+  "name": "John Healey",
+  "party": "Labour",
+  "total_tweets": 0,
+  "total_engagement": 0,
+  "engagement_per_tweet": 0,
+  "top_words": [],
+  "risk_flag": "RED"
+}
