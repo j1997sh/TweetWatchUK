@@ -1,82 +1,80 @@
-import feedparser, json, os, re
-from collections import Counter
+import requests
+import json
+import os
+from bs4 import BeautifulSoup
 
-NITTER="https://nitter.poast.org"
-STOPWORDS={"the","and","a","to","in","of","for","on","is","it","that","this","with","at","as","be","are","was","were"}
+DATA_DIR = "data/twitter"
+MPS_FILE = "data/mps.json"
 
-os.makedirs("data/twitter",exist_ok=True)
-os.makedirs("data/analytics",exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
 
-with open("data/mps.json") as f:
-    mps=json.load(f)
 
-def clean_text(text):
-    text=text.lower()
-    text=re.sub(r"http\S+","",text)
-    text=re.sub(r"[^a-z\s]","",text)
-    return [w for w in text.split() if w not in STOPWORDS]
+def extract_handle(twitter_url):
+    """
+    Convert full URL like https://twitter.com/DianeAbbottMP
+    into 'DianeAbbottMP'
+    """
+    if not twitter_url:
+        return None
+    return twitter_url.rstrip("/").split("/")[-1]
 
-for mp in mps:
-    pid=str(mp['person_id'])
-    username=mp.get("twitter_username")
-    if not username: 
-        continue
 
-    feed=feedparser.parse(f"{NITTER}/{username}/rss")
-    tweets=[]
-    word_list=[]
-    likes_total=ret_total=rep_total=0
+def fetch_rss_for_handle(handle):
+    """
+    Uses Nitter RSS feed. If down, returns empty list.
+    """
+    rss_url = f"https://nitter.net/{handle}/rss"
 
-    for e in feed.entries[:20]:
-        content=e.title
+    try:
+        r = requests.get(rss_url, timeout=10)
+        if r.status_code != 200:
+            return []
 
-        def extract(pattern):
-            m=re.search(pattern, content)
-            return int(m.group(1)) if m else 0
+        soup = BeautifulSoup(r.text, "xml")
+        items = soup.find_all("item")
 
-        likes=extract(r"(\d+) Likes")
-        rts=extract(r"(\d+) Retweets")
-        reps=extract(r"(\d+) Replies")
+        tweets = []
+        for item in items:
+            text = item.description.text if item.description else ""
+            pubdate = item.pubDate.text if item.pubDate else ""
 
-        likes_total+=likes
-        ret_total+=rts
-        rep_total+=reps
+            tweets.append({
+                "text": text,
+                "pub_date": pubdate,
+                "like_count": 0,        # RSS does not include engagement
+                "retweet_count": 0,
+                "reply_count": 0,
+                "age_minutes": 99999    # updated later in analytics
+            })
 
-        words=clean_text(content)
-        word_list.extend(words)
+        return tweets
 
-        tweets.append({
-            "text": content,
-            "url": e.link,
-            "date": e.published,
-            "likes": likes,
-            "retweets": rts,
-            "replies": reps
-        })
+    except Exception:
+        return []
 
-    with open(f"data/twitter/{pid}.json","w") as f:
-        json.dump(tweets,f,indent=2)
 
-    total=len(tweets)
-    ept = (likes_total+ret_total+rep_total)/total if total else 0
+def main():
+    with open(MPS_FILE, "r") as f:
+        mps = json.load(f)
 
-    if ept <= 3:
-        risk="RED"
-    elif ept <= 10:
-        risk="AMBER"
-    else:
-        risk="GREEN"
+    for mp in mps:
+        handle = mp.get("twitter_username")
+        mp_id = str(mp["person_id"])
 
-    analytics={
-        "person_id": pid,
-        "name": mp["name"],
-        "party": mp["party"],
-        "total_tweets": total,
-        "total_engagement": likes_total+ret_total+rep_total,
-        "engagement_per_tweet": round(ept,2),
-        "top_words": Counter(word_list).most_common(10),
-        "risk_flag": risk
-    }
+        if not handle:
+            print(f"No Twitter for {mp['name']}")
+            tweets = []
+        else:
+            print(f"Fetching tweets for {mp['name']} (@{handle})")
+            tweets = fetch_rss_for_handle(handle)
 
-    with open(f"data/analytics/{pid}.json","w") as f:
-        json.dump(analytics,f,indent=2)
+        # save per MP
+        out_path = os.path.join(DATA_DIR, f"{mp_id}.json")
+        with open(out_path, "w") as f:
+            json.dump(tweets, f, indent=2)
+
+    print("Tweet fetching complete.")
+
+
+if __name__ == "__main__":
+    main()
