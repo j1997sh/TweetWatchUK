@@ -2,7 +2,7 @@ name: Update Tweets
 
 on:
   schedule:
-    - cron: "0 * * * *"   # every hour
+    - cron: "0 * * * *"   # run every hour
   workflow_dispatch:
 
 jobs:
@@ -10,19 +10,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: 3.11
 
-      - name: Install Python dependencies
-        run: pip install requests feedparser
+      - name: Install dependencies
+        run: pip install requests feedparser beautifulsoup4
 
       - name: Fetch MP list
         run: python fetch_mps.py
 
-      - name: Fetch Tweets
+      - name: Fetch MP Twitter/X handles (TheyWorkForYou)
+        run: python fetch_handles.py
+
+      - name: Fetch Tweets for MPs
         run: python fetch_twitter.py
 
       - name: Commit and push changes
@@ -30,5 +35,5 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add .
-          git commit -m "Update tweets" || echo "No changes to commit"
+          git commit -m "Update tweets and MP handles" || echo "No changes"
           git push --force
