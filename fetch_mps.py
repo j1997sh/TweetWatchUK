@@ -1,85 +1,104 @@
-import requests, json, os, time
+import requests, json, os, time, re
 
+# API endpoints
 BASE = "https://members-api.parliament.uk/api/Members/Search"
 CONTACT_BASE = "https://members-api.parliament.uk/api/Members/{id}/Contact"
 
-def extract_handle(value: str):
-    """Extract @handle from full X/Twitter URL."""
-    if not value:
+def extract_handle(url):
+    """Extract @username from any X/Twitter URL format."""
+    if not url:
         return None
-    value = value.strip()
-    # e.g. https://twitter.com/Name  OR  https://x.com/Name
-    if "twitter.com" in value or "x.com" in value:
-        return value.rstrip("/").split("/")[-1]
-    return value  # if it's already just a username
 
-def is_twitter_field(field_type: str):
-    """Detect Twitter/X labels."""
-    if not field_type:
-        return False
-    field_type = field_type.lower()
-    return (
-        "twitter" in field_type or
-        field_type == "x" or
-        "formerly twitter" in field_type
-    )
+    url = url.strip()
 
-all_mps = []
-skip = 0
-take = 20
+    # Case: "@username"
+    if url.startswith("@"):
+        return url[1:].lower()
 
-print("Fetching MPs...")
+    # Case: https://twitter.com/username
+    match = re.search(r"(twitter\.com|x\.com)/([A-Za-z0-9_]+)", url)
+    if match:
+        return match.group(2).lower()
 
-while True:
-    url = f"{BASE}?House=Commons&IsCurrentMember=true&skip={skip}&take={take}"
-    data = requests.get(url).json()
+    return None
 
-    items = data["items"]
-    if not items:
-        break
 
-    for entry in items:
-        v = entry["value"]
+def fetch_mps():
+    all_mps = []
+    skip = 0
+    take = 20
 
-        mp_id = v["id"]
-        name = v["nameDisplayAs"]
-        party = v["latestParty"]["name"]
-        constituency = v["latestHouseMembership"]["membershipFrom"]
-        photo = v["thumbnailUrl"]
+    print("Fetching MP list...")
 
-        twitter = None
+    while True:
+        url = f"{BASE}?House=Commons&IsCurrentMember=true&skip={skip}&take={take}"
+        print("Fetching:", url)
 
-        # 1. Try new "latestTwitter" field
-        raw_twitter = v.get("latestTwitter")
-        if raw_twitter:
-            twitter = extract_handle(raw_twitter)
+        try:
+            data = requests.get(url).json()
+        except Exception as e:
+            print(f"ERROR fetching page: {e}")
+            break
 
-        # 2. Fallback to contact info
-        if not twitter:
+        items = data.get("items", [])
+        if not items:
+            break
+
+        for entry in items:
+            v = entry["value"]
+
+            mp_id = v["id"]
+            name = v["nameDisplayAs"]
+            party = v["latestParty"]["name"]
+            constituency = v["latestHouseMembership"]["membershipFrom"]
+            photo = v["thumbnailUrl"]
+
+            twitter = None
+
+            # Get contact details
             contact_url = CONTACT_BASE.format(id=mp_id)
-            contact = requests.get(contact_url).json()
+            try:
+                contact = requests.get(contact_url).json()
+            except:
+                contact = {}
 
+            # Search all contact entries
             for c in contact.get("value", []):
-                if is_twitter_field(c.get("type")):
-                    twitter = extract_handle(c.get("notes"))
+                ctype = c.get("type", "").lower()
+
+                # Parliament labels X as:
+                # - "Twitter"
+                # - "X (formerly Twitter)"
+                if "twitter" in ctype or "x" in ctype:
+                    notes = c.get("notes")
+                    twitter = extract_handle(notes)
                     break
 
-        all_mps.append({
-            "person_id": mp_id,
-            "name": name,
-            "party": party,
-            "constituency": constituency,
-            "thumbnail": photo,
-            "twitter_username": twitter
-        })
+            # Skip MPs without X accounts
+            if not twitter:
+                continue
 
-    skip += take
-    time.sleep(0.1)
+            all_mps.append({
+                "person_id": mp_id,
+                "name": name,
+                "party": party,
+                "constituency": constituency,
+                "thumbnail": photo,
+                "twitter_username": twitter
+            })
 
-print(f"Downloaded {len(all_mps)} MPs.")
+        skip += take
+        time.sleep(0.1)
 
-os.makedirs("data", exist_ok=True)
-with open("data/mps.json", "w") as f:
-    json.dump(all_mps, f, indent=2)
+    print(f"Found {len(all_mps)} MPs with Twitter/X accounts.")
 
-print("Saved data/mps.json")
+    # Save results
+    os.makedirs("data", exist_ok=True)
+    with open("data/mps.json", "w") as f:
+        json.dump(all_mps, f, indent=2)
+
+    print("Saved data/mps.json")
+
+
+if __name__ == "__main__":
+    fetch_mps()
