@@ -4,7 +4,7 @@ BASE = "https://members-api.parliament.uk/api/Members/Search"
 CONTACT_BASE = "https://members-api.parliament.uk/api/Members/{id}/Contact"
 
 def extract_handle(text):
-    """Extract clean Twitter/X handle from any format."""
+    """Extract @username from any format."""
     if not text:
         return None
 
@@ -14,7 +14,7 @@ def extract_handle(text):
     if text.startswith("@"):
         return text[1:].lower()
 
-    # Raw username with no URL
+    # Raw username
     if re.fullmatch(r"[A-Za-z0-9_]+", text):
         return text.lower()
 
@@ -31,14 +31,12 @@ def fetch_mps():
     skip = 0
     take = 20
 
+    print("Fetching MPs...")
+
     while True:
         url = f"{BASE}?House=Commons&IsCurrentMember=true&skip={skip}&take={take}"
         print("Fetching:", url)
-
-        try:
-            data = requests.get(url).json()
-        except:
-            break
+        data = requests.get(url).json()
 
         items = data.get("items", [])
         if not items:
@@ -57,31 +55,39 @@ def fetch_mps():
 
             # Fetch contact info
             contact_url = CONTACT_BASE.format(id=mp_id)
-            try:
-                contact = requests.get(contact_url).json()
-            except:
-                contact = {}
+            contact = requests.get(contact_url).json()
 
-            # Search all contact fields for any Twitter/X link
             for c in contact.get("value", []):
-                notes = c.get("notes", "") or ""
                 ctype = c.get("type", "").lower()
 
-                # Detect via type
+                # Detect Twitter/X via type
                 if "twitter" in ctype or "x" in ctype:
+
+                    # Parliament now puts URL in `line1`
+                    line1 = c.get("line1")
+                    notes = c.get("notes")
+
+                    twitter = extract_handle(line1) or extract_handle(notes)
+
+                    if twitter:
+                        break
+
+                # Also detect inside URLs (fallback)
+                line1 = c.get("line1", "")
+                notes = c.get("notes", "")
+
+                if "twitter.com" in str(line1) or "x.com" in str(line1):
+                    twitter = extract_handle(line1)
+                    if twitter:
+                        break
+
+                if "twitter.com" in str(notes) or "x.com" in str(notes):
                     twitter = extract_handle(notes)
                     if twitter:
                         break
 
-                # Detect via content
-                if "twitter.com" in notes or "x.com" in notes:
-                    twitter = extract_handle(notes)
-                    if twitter:
-                        break
-
-            # Skip MPs without X/Twitter accounts
             if not twitter:
-                continue
+                continue  # skip MPs with no Twitter/X account
 
             all_mps.append({
                 "person_id": mp_id,
