@@ -9,67 +9,71 @@
 <body>
 
 <div class="sidebar">
-    <h2>TweetWatch UK</h2>
+    <h2>TweetWatchUK</h2>
     <a class="active" href="index.html">Dashboard</a>
     <a href="mps.html">MP List</a>
+    <a href="feed.html">Live Feed</a>
 </div>
 
 <div class="main">
+
     <h1>Dashboard</h1>
 
-    <!-- Top Metrics -->
     <div class="metrics-grid">
         <div class="metric-card">
             <h3>Total Tweets Today</h3>
-            <p id="total-tweets">0</p>
+            <p id="totalTweets">0</p>
         </div>
         <div class="metric-card">
             <h3>Total Engagement Today</h3>
-            <p id="total-engagement">0</p>
+            <p id="totalEngagement">0</p>
         </div>
         <div class="metric-card">
             <h3>Most Active MP</h3>
-            <p id="most-active">Loading...</p>
+            <p id="mostActive">Loading...</p>
         </div>
         <div class="metric-card">
             <h3>Most Unpopular MP</h3>
-            <p id="most-unpopular">Loading...</p>
+            <p id="leastActive">Loading...</p>
         </div>
     </div>
 
-    <!-- Leaderboards -->
     <h2>Top 10 Most Engaging MPs</h2>
-    <table class="leaderboard-table" id="top-engaging-table">
+    <table id="topEngaging">
         <thead>
-            <tr>
-                <th>MP</th>
-                <th>Party</th>
-                <th>Engagement</th>
-            </tr>
+            <tr><th>MP</th><th>Party</th><th>Engagement</th></tr>
         </thead>
         <tbody></tbody>
     </table>
 
     <h2>Top 10 Least Engaging MPs</h2>
-    <table class="leaderboard-table" id="least-engaging-table">
+    <table id="leastEngaging">
         <thead>
-            <tr>
-                <th>MP</th>
-                <th>Party</th>
-                <th>Engagement</th>
-            </tr>
+            <tr><th>MP</th><th>Party</th><th>Engagement</th></tr>
         </thead>
         <tbody></tbody>
     </table>
 
-    <h2>Top 10 Most Active MPs (Tweet Count)</h2>
-    <table class="leaderboard-table" id="most-active-table">
+    <h2>Most Active MPs (Tweet Count)</h2>
+    <table id="mostActiveTable">
         <thead>
-            <tr>
-                <th>MP</th>
-                <th>Party</th>
-                <th>Tweets</th>
-            </tr>
+            <tr><th>MP</th><th>Party</th><th>Tweets</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2>Rising MPs (Last Hour)</h2>
+    <table id="risingTable">
+        <thead>
+            <tr><th>MP</th><th>Party</th><th>Δ Engagement</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2>Falling MPs (Last Hour)</h2>
+    <table id="fallingTable">
+        <thead>
+            <tr><th>MP</th><th>Party</th><th>Δ Engagement</th></tr>
         </thead>
         <tbody></tbody>
     </table>
