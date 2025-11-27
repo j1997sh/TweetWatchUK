@@ -1,13 +1,80 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>TweetWatch UK</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <title>TweetWatch UK – Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script defer src="dashboard.js"></script>
 </head>
 <body>
-  <h1>TweetWatch UK – Latest Tweets & Engagement</h1>
-  <div id="leaderboard"></div>
-  <div id="app"></div>
-  <script src="dashboard.js"></script>
+
+<div class="sidebar">
+    <h2>TweetWatch UK</h2>
+    <a class="active" href="index.html">Dashboard</a>
+    <a href="mps.html">MP List</a>
+</div>
+
+<div class="main">
+    <h1>Dashboard</h1>
+
+    <!-- Top Metrics -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <h3>Total Tweets Today</h3>
+            <p id="total-tweets">0</p>
+        </div>
+        <div class="metric-card">
+            <h3>Total Engagement Today</h3>
+            <p id="total-engagement">0</p>
+        </div>
+        <div class="metric-card">
+            <h3>Most Active MP</h3>
+            <p id="most-active">Loading...</p>
+        </div>
+        <div class="metric-card">
+            <h3>Most Unpopular MP</h3>
+            <p id="most-unpopular">Loading...</p>
+        </div>
+    </div>
+
+    <!-- Leaderboards -->
+    <h2>Top 10 Most Engaging MPs</h2>
+    <table class="leaderboard-table" id="top-engaging-table">
+        <thead>
+            <tr>
+                <th>MP</th>
+                <th>Party</th>
+                <th>Engagement</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2>Top 10 Least Engaging MPs</h2>
+    <table class="leaderboard-table" id="least-engaging-table">
+        <thead>
+            <tr>
+                <th>MP</th>
+                <th>Party</th>
+                <th>Engagement</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2>Top 10 Most Active MPs (Tweet Count)</h2>
+    <table class="leaderboard-table" id="most-active-table">
+        <thead>
+            <tr>
+                <th>MP</th>
+                <th>Party</th>
+                <th>Tweets</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+</div>
+
 </body>
 </html>
